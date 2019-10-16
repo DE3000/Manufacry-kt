@@ -1,0 +1,6 @@
+{
+	"type": "material",
+	"hardness": 1,
+	"cost": 1f,
+	"alwaysUnlocked": true
+}

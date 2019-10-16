@@ -1,0 +1,65 @@
+buildscript {
+    ext.kotlin_version = '1.3.50'
+
+    repositories {
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+        jcenter()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "com.github.jengelman.gradle.plugins:shadow:5.1.0"
+    }
+}
+
+apply plugin: "java"
+apply plugin: 'kotlin'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: 'com.github.johnrengelman.shadow'
+
+group 'manufacry'
+version '1.0'
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    maven { url 'https://jitpack.io' }
+}
+
+dependencies {
+    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    compileOnly "com.github.Anuken.Arc:arc-core:-SNAPSHOT"
+    compileOnly "com.github.Anuken.Mindustry:core:master-SNAPSHOT"
+}
+
+shadowJar {
+    dependencies {
+        include(dependency("org.jetbrains.kotlin:kotlin-stdlib"))
+    }
+}
+
+eclipse {
+    classpath {
+        downloadJavadoc = false
+        downloadSources = true
+    }
+}
+
+task copyToModsFolder(type: Copy) {
+    def libpath = "$buildDir/libs/manufacry-" + "$version" + "-all.jar"
+
+    def appdata = java.nio.file.Paths.get(System.getenv('APPDATA'))
+    def modsFolder = file(appdata.resolve("Mindustry").resolve("mods"))
+    println "Copying file '" + libpath + "' to '" + modsFolder + "'"
+    from file(libpath)
+    into modsFolder
+}
+
+build.finalizedBy(copyToModsFolder)
+build.dependsOn shadowJar
+
+
+//to compile a dexed jar file:
+//./d8 --output output.jar --classpath ~/Projects/testmod/libs/core-release.jar ~/Projects/testmod/build/libs/testmod-1.0.jar
