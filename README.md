@@ -2,12 +2,15 @@
 Bringing more manufacturing and factory components to
 [Mindustry](https://mindustrygame.github.io/).
 
-Manufacry is a jar/class mod for Mindustry and therefor needs a custom build
- (bleeding edge builds currently will not work). Check releases (desktop version only).
+##### Note
+Manufacry is a **code** mod for Mindustry and therefor needs a custom build
+ (bleeding edge builds currently will not work).
+##### Releases
+Check releases page (desktop version only).
 ##  Features
    - [ ] Configurable crafters - Crafters where you can choose what to manufacture.
    - [ ] Addon modules - Blocks that enhance or modify the functionality of related crafters.
-   - [ ] [Power production](#power-prodcution) - Power generation using steam
+   - [ ] [Power production](#power-production) - Power generation using steam
    - [ ] [Oil distillation](#oil-distillation) - Use vanilla oil to produce
     more refined oils.
    - [ ] [Factories](#factories) - Produce new items/liquids

@@ -1,9 +1,6 @@
 package manufacry.world.blocks.production
 
 import io.anuke.mindustry.world.*;
-import io.anuke.mindustry.type.Category;
-import io.anuke.mindustry.type.ItemStack;
-import io.anuke.mindustry.content.Items;
 import io.anuke.mindustry.entities.type.TileEntity;
 import io.anuke.mindustry.type.Item;
 import java.io.DataOutput;
@@ -24,38 +21,54 @@ import io.anuke.arc.util.Align;
 import io.anuke.mindustry.entities.type.Player;
 import io.anuke.mindustry.game.Cicon
 import io.anuke.arc.collection.ArrayMap
+import io.anuke.arc.graphics.g2d.TextureRegion
 import io.anuke.arc.math.Mathf
+import io.anuke.arc.util.Log
 import io.anuke.arc.util.Time
+import io.anuke.mindustry.content.Fx
 import io.anuke.mindustry.entities.Effects
-import manufacry.Schematic
-import manufacry.entities.traits.SchematicTrait
-import manufacry.world.consumers.ConsumeItemSchematic
-import manufacry.world.consumers.ConsumePowerSchematic
+import io.anuke.mindustry.game.UnlockableContent
+import io.anuke.mindustry.gen.Sounds
+import io.anuke.mindustry.type.Liquid
+import manufacry.Recipe
+import manufacry.entities.traits.RecipeTrait
+import manufacry.world.consumers.ConsumeRecipeItems
+import manufacry.world.consumers.ConsumeRecipeLiquid
+import manufacry.world.consumers.ConsumeRecipePower
+import java.io.IOException
 
-open class ConfigurableCrafter(name: String) : GenericCrafter(name)
+open class ConfigurableCrafter(name: String) : Block(name)
 {
+	
+	protected var craftEffect:Effects.Effect = Fx.none
+	protected var updateEffect:Effects.Effect = Fx.none
+	protected var updateEffectChance = 0.04f
+	protected var drawer: Consumer<Tile>? = null
+	protected var drawIcons: Supplier<kotlin.Array<TextureRegion>>? = null
 	
 	companion object
 	{
 		
-		private var lastOutput: Item? = null;
-		private var schematics: ArrayMap<Item, Schematic> = ArrayMap();
+		private var lastOutput: UnlockableContent? = null;
+		private var recipes: ArrayMap<UnlockableContent, Recipe> = ArrayMap();
 	}
 	
 	init
 	{
-		solid = true
 		update = true
+		solid = true
 		hasItems = true
 		hasPower = true
+		hasLiquids = true
+		health = 60
+		idleSound = Sounds.machine
+		idleSoundVolume = 0.03f
 		configurable = true
 	}
 	
-	fun addSchematic(schematic: Schematic)
+	fun addRecipe(recipe: Recipe)
 	{
-		// TODO Liquids
-		val item = schematic.outputItem?.item ?: return;
-		schematics.put(item, schematic);
+		recipes.put(recipe.label, recipe);
 	}
 	
 	override fun playerPlaced(tile: Tile)
@@ -68,8 +81,21 @@ open class ConfigurableCrafter(name: String) : GenericCrafter(name)
 	
 	override fun init()
 	{
-		consumes.add(ConsumeItemSchematic(schematics.values().toArray()));
-		consumes.add(ConsumePowerSchematic(schematics.values().toArray()));
+		hasItems = false
+		hasPower = false
+		hasLiquids = false
+		val recipeArray = recipes.values().toArray()
+		for(recipe in recipeArray)
+		{
+			
+			hasItems = hasItems || recipe.outputItems.isNotEmpty() && recipe.inputItems.isNotEmpty()
+			hasLiquids = hasLiquids || recipe.outputLiquids.isNotEmpty() && recipe.inputLiquids.isNotEmpty()
+			hasPower = hasPower || recipe.power>0
+		}
+		
+		consumes.add(ConsumeRecipeItems(recipeArray));
+		consumes.add(ConsumeRecipePower(recipeArray));
+		consumes.add(ConsumeRecipeLiquid(recipeArray));
 		super.init();
 	}
 
@@ -90,17 +116,17 @@ open class ConfigurableCrafter(name: String) : GenericCrafter(name)
 		
 		val entity: FactoryEntity = tile.entity();
 		
-		val holder = Supplier<Item> { entity.getSchematic()?.outputItem?.item };
+		val holder = Supplier<UnlockableContent> { entity.getRecipe()?.label };
 		
-		val consumer = Consumer<Item> { item: Item? ->
+		val consumer = Consumer<UnlockableContent> { item: UnlockableContent? ->
 			lastOutput = item;
 			tile.configure(item?.id?.toInt() ?: -1);
 		};
 		
 		//var items = Vars.content.items();
-		val items = Array<Item>();
+		val items = Array<UnlockableContent>();
 		
-		for (key in schematics.keys())
+		for (key in recipes.keys())
 		{
 			items.add(key);
 		}
@@ -114,7 +140,8 @@ open class ConfigurableCrafter(name: String) : GenericCrafter(name)
 		{
 			//if(!data.isUnlocked(item) && world.isZone()) continue;
 			
-			val cell = cont.addImageButton(Tex.whiteui, Styles.clearToggleTransi, 24f) { control.input.frag.config.hideConfig() };
+			val cell = cont.addImageButton(Tex.whiteui, Styles.clearToggleTransi,
+							24f) { control.input.frag.config.hideConfig() };
 			val button = cell.group(group).get();
 			button.changed { consumer.accept(if (button.isChecked) item else null) };
 			button.style.imageUp = TextureRegionDrawable(item.icon(Cicon.small));
@@ -129,7 +156,7 @@ open class ConfigurableCrafter(name: String) : GenericCrafter(name)
 		table.add(cont);
 		table.row();
 		table.label {
-			entity.getSchematic()?.outputItem?.item?.localizedName() ?: "Select output."
+			entity.getRecipe()?.label?.localizedName() ?: "Select output."
 		}.style(Styles.outlineLabel).center().growX().get().setAlignment(Align.center);
 		
 	}
@@ -138,18 +165,13 @@ open class ConfigurableCrafter(name: String) : GenericCrafter(name)
 	{
 		// TODO Clear items when config changed?
 		tile.entity.items.clear();
-		tile.entity<FactoryEntity>().currentSchematicID = value.toShort();
+		tile.entity.liquids.clear();
+		tile.entity<FactoryEntity>().currentRecipeID = value.toShort();
 	}
 	
 	override fun newEntity(): TileEntity
 	{
 		return FactoryEntity();
-	}
-	
-	override fun acceptItem(item: Item, tile: Tile, source: Tile): Boolean
-	{
-		val hasS = consumes.itemFilters.get(item.id.toInt());
-		return hasS && tile.entity.items.get(item) < getMaximumAccepted(tile, item);
 	}
 	
 	override fun outputsItems(): Boolean
@@ -159,27 +181,73 @@ open class ConfigurableCrafter(name: String) : GenericCrafter(name)
 	
 	override fun canProduce(tile: Tile): Boolean
 	{
+		Log.info("Crafter canProduce");
 		val entity: FactoryEntity = tile.entity();
-		val schematic = entity.getSchematic() ?: return false;
-		if (tile.entity.items.get(schematic.input.item) < schematic.input.amount)
+		val recipe = entity.getRecipe() ?: return false;
+		Log.info("Crafter has recipe in canProduce");
+		// check input items
+		for (inputItem in recipe.inputItems)
 		{
-			return false;
+			if (tile.entity.items.get(inputItem.item) < inputItem.amount)
+			{
+				Log.info("\tNo item input: $inputItem");
+				return false;
+			}
 		}
 		
-		if (schematic.outputItem != null && tile.entity.items.get(schematic.outputItem.item) >= itemCapacity)
+		// check input liquids
+		for (inputLiquid in recipe.inputLiquids)
 		{
-			return false;
+			if (tile.entity.liquids.get(inputLiquid.liquid) < inputLiquid.amount)
+			{
+				Log.info("\tNo liquid input: $inputLiquid");
+				return false;
+			}
 		}
-		return outputLiquid == null || tile.entity.liquids.get(outputLiquid.liquid) < liquidCapacity;
+		
+		// check output items
+		if (outputsItems())
+		{
+			for (outputItem in recipe.outputItems)
+			{
+				
+				if (tile.entity.items.get(outputItem.item) >= itemCapacity)
+				{
+					Log.info("\tOutput items full: $outputItem");
+					return false;
+				}
+			}
+		}
+		
+		//check output liquids
+		if (outputsLiquid)
+		{
+			for (outputLiquid in recipe.outputLiquids)
+			{
+				if (tile.entity.liquids.get(outputLiquid.liquid) >= liquidCapacity)
+				{
+					Log.info("\tOutput liquid full: $outputLiquid");
+					return false;
+				}
+			}
+		}
+		
+		return true;
 	}
 	
 	override fun update(tile: Tile)
 	{
 		val entity: FactoryEntity = tile.entity();
-		val schematic = entity.getSchematic() ?: return;
+		val recipe = entity.getRecipe() ?: return;
+		Log.info("Crafter has recipe in update(${canProduce(tile)}): " + entity.cons.valid());
+		for (cons in entity.block.consumes.all())
+		{
+			Log.info("${cons.type()}\t${cons.valid(entity)}");
+		}
 		if (entity.cons.valid())
 		{
-			entity.progress += getProgressIncrease(entity, schematic.craftTime);
+			Log.info("Crafter valid");
+			entity.progress += getProgressIncrease(entity, recipe.craftTime);
 			entity.totalProgress += entity.delta();
 			entity.warmup = Mathf.lerpDelta(entity.warmup, 1f, 0.02f);
 			
@@ -187,25 +255,28 @@ open class ConfigurableCrafter(name: String) : GenericCrafter(name)
 			{
 				Effects.effect(updateEffect, entity.x + Mathf.range(size * 4f), entity.y + Mathf.range(size * 4));
 			}
-		} else
+		}
+		else
 		{
 			entity.warmup = Mathf.lerp(entity.warmup, 0f, 0.02f);
 		}
 		
 		if (entity.progress >= 1f)
 		{
-			entity.items.remove(schematic.input);
-			if (schematic.outputItem != null)
+			Log.info("Crafter trigger");
+			// Remove items/liquids from internal storage
+			entity.cons.trigger();
+			
+			for (outputItem in recipe.outputItems)
 			{
-				useContent(tile, schematic.outputItem.item);
-				for (i in 1..schematic.outputItem.amount)
+				useContent(tile, outputItem.item);
+				for (i in 1..outputItem.amount)
 				{
-					offloadNear(tile, schematic.outputItem.item);
+					offloadNear(tile, outputItem.item);
 				}
 			}
 			
-			// TODO Liquids
-			if (outputLiquid != null)
+			for (outputLiquid in recipe.outputLiquids)
 			{
 				useContent(tile, outputLiquid.liquid);
 				handleLiquid(tile, tile, outputLiquid.liquid, outputLiquid.amount);
@@ -215,45 +286,74 @@ open class ConfigurableCrafter(name: String) : GenericCrafter(name)
 			entity.progress -= 1f;
 		}
 		
-		if (schematic.outputItem != null && tile.entity.timer.get(timerDump, dumpTime.toFloat()))
+		for (outputItem in recipe.outputItems)
 		{
-			tryDump(tile, schematic.outputItem.item);
+			if (tile.entity.timer.get(timerDump, dumpTime.toFloat()))
+			{
+				tryDump(tile, outputItem.item);
+			}
 		}
 		
-		if (outputLiquid != null)
+		for (outputLiquid in recipe.outputLiquids)
 		{
 			tryDumpLiquid(tile, outputLiquid.liquid);
 		}
 	}
 	
-	inner class FactoryEntity : GenericCrafterEntity(), SchematicTrait
+	override fun shouldIdleSound(tile: Tile): Boolean
+	{
+		return tile.entity.cons.valid()
+	}
+	
+	override fun draw(tile: Tile)
+	{
+		drawer?.accept(tile) ?: super.draw(tile)
+	}
+	
+	public override fun generateIcons(): kotlin.Array<TextureRegion>
+	{
+		return drawIcons?.get() ?: super.generateIcons();
+	}
+	
+	override fun getMaximumAccepted(tile: Tile?, item: Item?): Int
+	{
+		return itemCapacity;
+	}
+	
+	inner class FactoryEntity : TileEntity(), RecipeTrait
 	{
 		
-		var currentSchematicID: Short = -1;
+		var progress: Float = 0f
+		var totalProgress: Float = 0f
+		var warmup: Float = 0f
+		var currentRecipeID: Short = -1;
 		
-		override fun getSchematic(): Schematic?
+		override fun getRecipe(): Recipe?
 		{
-			return if (currentSchematicID > -1) schematics.get(content.item(currentSchematicID.toInt())) else null;
+			return if (currentRecipeID > -1) recipes.get(content.item(currentRecipeID.toInt())) else null;
 		}
 		
 		override fun config(): Int
 		{
-			return currentSchematicID.toInt();
+			return currentRecipeID.toInt();
 		}
 		
 		//@Throws(IOException::class)
 		override fun write(stream: DataOutput)
 		{
 			super.write(stream);
-			stream.writeByte(currentSchematicID.toInt());
+			stream.writeFloat(progress)
+			stream.writeFloat(warmup)
+			stream.writeByte(currentRecipeID.toInt());
 		}
 		
 		//@Throws(IOException::class)
 		override fun read(stream: DataInput, revision: Byte)
 		{
 			super.read(stream, revision);
-			val id = stream.readByte();
-			currentSchematicID = id.toShort();
+			progress = stream.readFloat();
+			warmup = stream.readFloat();
+			currentRecipeID = stream.readByte().toShort();
 		}
 	}
 	

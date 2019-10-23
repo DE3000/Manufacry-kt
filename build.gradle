@@ -1,3 +1,28 @@
+ext {
+    localCore = {
+        return new File("../Mindustry/core").exists()
+    }
+
+    corePath = {
+        if(localCore()){
+            libPath = new File("../Mindustry/core/build/libs/core-release.jar")
+            return files(libPath)
+    }else{
+        return "com.github.Anuken.Mindustry:core:master-SNAPSHOT"
+    }}
+
+    getArcHash = {
+        ahash = ""
+        if(localCore())
+        {
+            ahash =  new Properties().with{ p -> p.load(new File('../Mindustry/gradle.properties').newReader()); return p }["archash"]
+        }
+        else
+        {ahash = new Properties().with{ p -> p.load(file('gradle.properties').newReader()); return p }["archash"]}
+        return ahash
+    }
+}
+
 buildscript {
     ext.kotlin_version = '1.3.50'
 
@@ -14,7 +39,6 @@ buildscript {
 
 apply plugin: "java"
 apply plugin: 'kotlin'
-apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'com.github.johnrengelman.shadow'
 
@@ -30,8 +54,8 @@ repositories {
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    compileOnly "com.github.Anuken.Arc:arc-core:-SNAPSHOT"
-    compileOnly "com.github.Anuken.Mindustry:core:master-SNAPSHOT"
+    compileOnly "com.github.Anuken.Arc:arc-core:${getArcHash()}"
+    compileOnly corePath()
 }
 
 shadowJar {
@@ -40,19 +64,12 @@ shadowJar {
     }
 }
 
-eclipse {
-    classpath {
-        downloadJavadoc = false
-        downloadSources = true
-    }
-}
-
 task copyToModsFolder(type: Copy) {
     def libpath = "$buildDir/libs/manufacry-" + "$version" + "-all.jar"
 
     def appdata = java.nio.file.Paths.get(System.getenv('APPDATA'))
     def modsFolder = file(appdata.resolve("Mindustry").resolve("mods"))
-    println "Copying file '" + libpath + "' to '" + modsFolder + "'"
+    // println "Copying file '" + libpath + "' to '" + modsFolder + "'"
     from file(libpath)
     into modsFolder
 }

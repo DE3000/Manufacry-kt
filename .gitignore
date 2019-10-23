@@ -53,3 +53,4 @@ android/libs/
 
 ## Local development configuration
 dev
+src/main/resources/sprites/**/*.xcf

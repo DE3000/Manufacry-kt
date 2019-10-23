@@ -7,6 +7,7 @@ import io.anuke.arc.graphics.g2d.Draw
 import io.anuke.arc.graphics.g2d.TextureRegion
 import io.anuke.arc.util.*;
 import io.anuke.mindustry.content.*;
+import io.anuke.mindustry.game.UnlockableContent
 import io.anuke.mindustry.mod.*;
 import io.anuke.mindustry.type.*;
 import io.anuke.mindustry.world.Tile
@@ -15,7 +16,40 @@ import manufacry.content.FactoryItems
 import manufacry.world.blocks.distribution.LiquidSorter
 import manufacry.world.blocks.production.ConfigurableCrafter
 
-data class Schematic(val input: ItemStack, val outputItem: ItemStack?, val power: Float, val craftTime: Float)
+data class Recipe(val label: UnlockableContent, val inputItems: Array<ItemStack>, val inputLiquids: Array<LiquidStack>,
+									val power: Float, val craftTime: Float, val outputItems: Array<ItemStack>,
+									val outputLiquids: Array<LiquidStack>)
+{
+	
+	override fun equals(other: Any?): Boolean
+	{
+		if (this === other) return true
+		if (javaClass != other?.javaClass) return false
+		
+		other as Recipe
+		
+		if (!inputItems.contentEquals(other.inputItems)) return false
+		if (!inputLiquids.contentEquals(other.inputLiquids)) return false
+		if (power != other.power) return false
+		if (craftTime != other.craftTime) return false
+		if (!outputItems.contentEquals(other.outputItems)) return false
+		if (!outputLiquids.contentEquals(other.outputLiquids)) return false
+		
+		return true
+	}
+	
+	override fun hashCode(): Int
+	{
+		var result = inputItems.contentHashCode()
+		result = 31 * result + inputLiquids.contentHashCode()
+		result = 31 * result + power.hashCode()
+		result = 31 * result + craftTime.hashCode()
+		result = 31 * result + outputItems.contentHashCode()
+		result = 31 * result + outputLiquids.contentHashCode()
+		return result
+	}
+	
+}
 
 class Manufacry : Mod()
 {
@@ -54,7 +88,6 @@ class Manufacry : Mod()
 				this.drawIcons = Supplier {
 					arrayOf<TextureRegion>(Core.atlas.find("$name-bottom"), Core.atlas.find("$name-top"))
 				}
-				Log.info("Name:\t$name\t${drawIcons.get()}")
 				
 				this.drawer = Consumer { tile: Tile ->
 					val mod = tile.entity.liquids
@@ -88,9 +121,21 @@ class Manufacry : Mod()
 				this.requirements(Category.crafting, ItemStack.with(Items.titanium, 10))
 				size = 2;
 				craftEffect = Fx.pulverize;
-				addSchematic(Schematic(ItemStack(Items.coal, 2), ItemStack(Items.graphite, 2), 1.8f, 30f));
-				addSchematic(Schematic(ItemStack(Items.copper, 2), ItemStack(FactoryItems.copperPlate, 1), 2.0f, 60f));
-				addSchematic(Schematic(ItemStack(Items.thorium, 4), ItemStack(Items.phasefabric, 1), 3.0f, 45f));
+				updateEffect = Fx.purify;
+				addRecipe(Recipe(label = Items.graphite, inputItems = arrayOf(ItemStack(Items.coal, 3)),
+								inputLiquids = arrayOf(LiquidStack(Liquids.water, 0.1f)), power = 1.8f, craftTime = 30f,
+								outputItems = arrayOf(ItemStack(Items.graphite, 2)), outputLiquids = emptyArray()));
+				addRecipe(Recipe(label = FactoryItems.copperPlate, inputItems = arrayOf(ItemStack(Items.copper, 2)),
+								inputLiquids = emptyArray(), outputItems = arrayOf(ItemStack(FactoryItems.copperPlate, 1)),
+								power = 2.0f, craftTime = 60f, outputLiquids = emptyArray()));
+				addRecipe(Recipe(label = Items.phasefabric,
+								inputItems = arrayOf(ItemStack(Items.thorium, 4), ItemStack(Items.sand, 10)),
+								inputLiquids = emptyArray(), outputItems = arrayOf(ItemStack(Items.phasefabric, 1)), power = 1.9f,
+								craftTime = 90f, outputLiquids = emptyArray()));
+				addRecipe(Recipe(label = Items.scrap, inputItems = emptyArray(),
+								inputLiquids = arrayOf(LiquidStack(Liquids.oil, 0.1f), LiquidStack(Liquids.slag, 0.1f)),
+								outputItems = arrayOf(ItemStack(Items.scrap, 1)), power = 0.1f, craftTime = 2f,
+								outputLiquids = emptyArray()));
 			}
 		};
 		
@@ -110,6 +155,7 @@ class Manufacry : Mod()
 				invert = true;
 			}
 		}
+		
 	}
 	
 	//called after all mods have been loaded
