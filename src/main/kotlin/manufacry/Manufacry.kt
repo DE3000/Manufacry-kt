@@ -16,9 +16,9 @@ import manufacry.content.FactoryItems
 import manufacry.world.blocks.distribution.LiquidSorter
 import manufacry.world.blocks.production.ConfigurableCrafter
 
-data class Recipe(val label: UnlockableContent, val inputItems: Array<ItemStack>, val inputLiquids: Array<LiquidStack>,
-									val power: Float, val craftTime: Float, val outputItems: Array<ItemStack>,
-									val outputLiquids: Array<LiquidStack>)
+data class Recipe(val label: UnlockableContent, val type: ContentType, val inputItems: Array<ItemStack>,
+									val inputLiquids: Array<LiquidStack>, val power: Float, val craftTime: Float,
+									val outputItems: Array<ItemStack>, val outputLiquids: Array<LiquidStack>)
 {
 	
 	override fun equals(other: Any?): Boolean
@@ -28,6 +28,8 @@ data class Recipe(val label: UnlockableContent, val inputItems: Array<ItemStack>
 		
 		other as Recipe
 		
+		if (label != other.label) return false
+		if (type != other.type) return false
 		if (!inputItems.contentEquals(other.inputItems)) return false
 		if (!inputLiquids.contentEquals(other.inputLiquids)) return false
 		if (power != other.power) return false
@@ -40,7 +42,9 @@ data class Recipe(val label: UnlockableContent, val inputItems: Array<ItemStack>
 	
 	override fun hashCode(): Int
 	{
-		var result = inputItems.contentHashCode()
+		var result = label.hashCode()
+		result = 31 * result + type.hashCode()
+		result = 31 * result + inputItems.contentHashCode()
 		result = 31 * result + inputLiquids.contentHashCode()
 		result = 31 * result + power.hashCode()
 		result = 31 * result + craftTime.hashCode()
@@ -48,7 +52,6 @@ data class Recipe(val label: UnlockableContent, val inputItems: Array<ItemStack>
 		result = 31 * result + outputLiquids.contentHashCode()
 		return result
 	}
-	
 }
 
 class Manufacry : Mod()
@@ -62,7 +65,7 @@ class Manufacry : Mod()
 		Log.info("Manufacry::loadContent() has been called.");
 		FactoryItems.load();
 		
-		val solidBoiler = object : LiquidConverter("manufacry-steam-boiler-solid")
+		val solidBoiler = object : LiquidConverter("manufacry-steam-boiler-solid1")
 		{
 			init
 			{
@@ -122,20 +125,67 @@ class Manufacry : Mod()
 				size = 2;
 				craftEffect = Fx.pulverize;
 				updateEffect = Fx.purify;
-				addRecipe(Recipe(label = Items.graphite, inputItems = arrayOf(ItemStack(Items.coal, 3)),
-								inputLiquids = arrayOf(LiquidStack(Liquids.water, 0.1f)), power = 1.8f, craftTime = 30f,
-								outputItems = arrayOf(ItemStack(Items.graphite, 2)), outputLiquids = emptyArray()));
-				addRecipe(Recipe(label = FactoryItems.copperPlate, inputItems = arrayOf(ItemStack(Items.copper, 2)),
-								inputLiquids = emptyArray(), outputItems = arrayOf(ItemStack(FactoryItems.copperPlate, 1)),
-								power = 2.0f, craftTime = 60f, outputLiquids = emptyArray()));
-				addRecipe(Recipe(label = Items.phasefabric,
-								inputItems = arrayOf(ItemStack(Items.thorium, 4), ItemStack(Items.sand, 10)),
-								inputLiquids = emptyArray(), outputItems = arrayOf(ItemStack(Items.phasefabric, 1)), power = 1.9f,
-								craftTime = 90f, outputLiquids = emptyArray()));
-				addRecipe(Recipe(label = Items.scrap, inputItems = emptyArray(),
-								inputLiquids = arrayOf(LiquidStack(Liquids.oil, 0.1f), LiquidStack(Liquids.slag, 0.1f)),
-								outputItems = arrayOf(ItemStack(Items.scrap, 1)), power = 0.1f, craftTime = 2f,
-								outputLiquids = emptyArray()));
+				addRecipe(Recipe(label = Liquids.oil, type = ContentType.liquid, power = 0.1f, craftTime = 2f,
+					inputItems = arrayOf(ItemStack(Items.coal, 4)), inputLiquids = arrayOf(LiquidStack(Liquids.water, 5f)),
+					outputItems = emptyArray(), outputLiquids = arrayOf(LiquidStack(Liquids.oil, 1f))));
+				addRecipe(
+					Recipe(label = Items.graphite, type = ContentType.item, inputItems = arrayOf(ItemStack(Items.coal, 3)),
+						inputLiquids = arrayOf(LiquidStack(Liquids.water, 0.1f)), power = 1.8f, craftTime = 30f,
+						outputItems = arrayOf(ItemStack(Items.graphite, 2)), outputLiquids = emptyArray()));
+				addRecipe(Recipe(label = FactoryItems.copperPlate, type = ContentType.item,
+					inputItems = arrayOf(ItemStack(Items.copper, 2)), inputLiquids = emptyArray(),
+					outputItems = arrayOf(ItemStack(FactoryItems.copperPlate, 1)), power = 2.0f, craftTime = 60f,
+					outputLiquids = emptyArray()));
+				addRecipe(Recipe(label = Items.phasefabric, type = ContentType.item,
+					inputItems = arrayOf(ItemStack(Items.thorium, 4), ItemStack(Items.sand, 10)), inputLiquids = emptyArray(),
+					outputItems = arrayOf(ItemStack(Items.phasefabric, 1)), power = 1.9f, craftTime = 90f,
+					outputLiquids = emptyArray()));
+				addRecipe(Recipe(label = Items.scrap, type = ContentType.item, inputItems = emptyArray(),
+					inputLiquids = arrayOf(LiquidStack(Liquids.oil, 0.1f), LiquidStack(Liquids.slag, 0.1f)),
+					outputItems = arrayOf(ItemStack(Items.scrap, 1)), power = 0.1f, craftTime = 2f,
+					outputLiquids = emptyArray()));
+				
+			}
+		};
+		val factory2 = object : ConfigurableCrafter("manufacry-steam-boiler-solid")
+		{
+			init
+			{
+				this.requirements(Category.crafting, ItemStack.with(Items.titanium, 10))
+				size = 2;
+				craftEffect = Fx.steam;
+				updateEffect = Fx.bubble;
+				val steamLowRecipe = Recipe(label = FactoryItems.steamLow, type = ContentType.liquid,
+					inputItems = arrayOf(ItemStack(Items.coal, 1)), inputLiquids = arrayOf(LiquidStack(Liquids.water, 1f)),
+					power = 1.5f, craftTime = 30f, outputItems = emptyArray(),
+					outputLiquids = arrayOf(LiquidStack(FactoryItems.steamLow, 0.66f)));
+				addRecipe(steamLowRecipe);
+				
+				val liquidRegion = reg("-liquid")
+				val topRegion = reg("-top")
+				val bottomRegion = reg("-bottom")
+				
+				this.drawIcons = Supplier {
+					arrayOf<TextureRegion>(Core.atlas.find("$name-bottom"), Core.atlas.find("$name-top"))
+				}
+				
+				this.drawer = Consumer { tile: Tile ->
+					val mod = tile.entity.liquids
+					
+					val rotation = if (rotate) tile.rotation() * 90 else 0
+					
+					Draw.rect(reg(bottomRegion), tile.drawx(), tile.drawy(), rotation.toFloat())
+					
+					if (mod.total() > 0.001f)
+					{
+						Draw.color(steamLowRecipe.outputLiquids[0].liquid.color)
+						Draw.alpha(mod.get(steamLowRecipe.outputLiquids[0].liquid) / liquidCapacity)
+						Draw.rect(reg(liquidRegion), tile.drawx(), tile.drawy(), rotation.toFloat())
+						Draw.color()
+					}
+					
+					Draw.rect(reg(topRegion), tile.drawx(), tile.drawy(), rotation.toFloat())
+				}
 			}
 		};
 		
