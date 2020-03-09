@@ -11,7 +11,7 @@ Check releases page (desktop version only).
    - [ ] Configurable crafters - Crafters where you can choose what to manufacture.
    - [ ] Addon modules - Blocks that enhance or modify the functionality of related crafters.
    - [ ] [Power production](#power-production) - Power generation using steam
-   - [ ] [Oil distillation](#oil-distillation) - Use vanilla oil to produce
+   - [ ] [Oil distillation](#oil-distillation) - Use Crude oil (vanilla oil) to produce
     more refined oils.
    - [ ] [Factories](#factories) - Produce new items/liquids
    - [ ] [Workforce](#workforce) - New aircraft and mechs for utility/defense/offence 
@@ -30,7 +30,6 @@ Check releases page (desktop version only).
         - Types
             - Solid Fuelled - Burns items (similar to vanilla steam generator)
                 - Coal - produces low pressure
-                - Blast - produces low pressure
                 - Pyrite - produces high pressure
             - Liquid Fuelled - Burns liquid fuel
                 - Crude Oil	(vanilla) - produces low pressure

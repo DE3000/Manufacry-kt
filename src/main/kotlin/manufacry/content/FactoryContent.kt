@@ -11,13 +11,14 @@ import io.anuke.mindustry.entities.Effects
 import io.anuke.mindustry.type.Liquid
 import io.anuke.mindustry.type.StatusEffect
 
-object FactoryItems : ContentList
+object FactoryContent : ContentList
 {
 	
 	lateinit var copperPlate: Item;
 	lateinit var steamLow: Liquid;
 	lateinit var steamHigh: Liquid;
 	lateinit var scaldingEffect: StatusEffect;
+	lateinit var waterDistilled:Liquid;
 	
 	override fun load()
 	{
@@ -47,22 +48,29 @@ object FactoryItems : ContentList
 		//endregion
 		
 		//region Liquids
+		waterDistilled = object: Liquid("manufacry-water-distilled",Color.valueOf("4cabf7")){
+			init
+			{
+				heatCapacity = 0.5f
+				effect = StatusEffects.wet
+			}
+		}
 		steamLow = object : Liquid("manufacry-steam-low", Color.valueOf("999999"))
 		{
 			init
 			{
-				this.viscosity = 1.0f;
-				this.temperature = 0.8f;
-				this.effect = scaldingEffect;
+				viscosity = 1.0f;
+				temperature = 0.8f;
+				effect = scaldingEffect;
 			}
 		}
 		steamHigh = object : Liquid("manufacry-steam-high", Color.valueOf("dcdcdc"))
 		{
 			init
 			{
-				this.viscosity = 1.5f;
-				this.temperature = 1.1f;
-				this.effect = scaldingEffect;
+				viscosity = 1.5f;
+				temperature = 1.1f;
+				effect = scaldingEffect;
 			}
 		}
 		//endregion
